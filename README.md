@@ -29,8 +29,9 @@ far end, swap cables one by one, and read each verdict as it appears.
 
 Besides cable identity, the tool shows the attached device/charger's
 self-reported name, model, serial and firmware; the actual USB link speed;
-battery charge/discharge wattage; and a ⚠ verdict when the negotiated power
-or link speed is being limited by the cable.
+battery charge/discharge wattage; a ⚠ verdict when the negotiated power
+or link speed is being limited by the cable; and a note when macOS accessory
+security ("Allow accessory to connect") is withholding data on a port.
 
 ## Example output
 
