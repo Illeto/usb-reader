@@ -128,8 +128,16 @@ func renderPort(_ port: PortSnapshot) -> String {
         out.append(cont("(charger \u{2192} this cable \u{2192} this port), then re-run"))
     }
 
-    // Actual data link state.
-    if deviceAttached {
+    // Actual data link state. A macOS accessory-security block takes
+    // precedence: the transport still signals a SuperSpeed rate, but no data
+    // flows until the user approves the accessory, so don't report a healthy
+    // link.
+    if port.dataBlockedBySecurity {
+        out.append(row("Link", Style.yellow("data blocked by macOS accessory security")))
+        let wouldBe = port.linkSpeedDescription.flatMap { $0 == "None" ? nil : $0 }
+        let prefix = wouldBe.map { "would run at USB SuperSpeed \($0) — " } ?? ""
+        out.append(cont(prefix + "approve the \"Allow accessory to connect\" prompt to enable data"))
+    } else if deviceAttached {
         if port.superSpeedActive {
             let gen = port.linkSpeedDescription.map { " \($0)" } ?? ""
             out.append(row("Link", "USB SuperSpeed\(gen)"))
@@ -176,7 +184,7 @@ func renderPort(_ port: PortSnapshot) -> String {
             out.append(Style.yellow("               this unmarked cable (3 A limit) is likely the limiter"))
         }
     }
-    if deviceAttached && !port.superSpeedActive && !cableMarked {
+    if deviceAttached && !port.superSpeedActive && !cableMarked && !port.dataBlockedBySecurity {
         out.append(Style.yellow("  ⚠ Verdict:   data running at 480 Mbps; if this device supports more,"))
         out.append(Style.yellow("               try a known data-rated cable"))
     }

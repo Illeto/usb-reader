@@ -41,6 +41,10 @@ struct PortSnapshot {
     let superSpeedActive: Bool
     /// e.g. "Gen 1" when a SuperSpeed link is up.
     let linkSpeedDescription: String?
+    /// macOS "Allow accessory to connect" security is withholding data on
+    /// this port. The transport still signals a SuperSpeed rate, but no data
+    /// flows until the user approves the accessory.
+    let dataBlockedBySecurity: Bool
 }
 
 enum PortRegistry {
@@ -68,6 +72,7 @@ enum PortRegistry {
         var cablePID: UInt16?
         var partner: [String: String] = [:]
         var linkSpeed: String?
+        var dataBlocked = false
         var connectionActive = (props["ConnectionActive"] as? Bool) ?? false
 
         // First value found wins; "0"/empty placeholders are skipped.
@@ -110,6 +115,13 @@ enum PortRegistry {
             if linkSpeed == nil, let desc = childProps["SuperSpeedSignalingDescription"] as? String {
                 linkSpeed = desc
             }
+            // macOS TRM (Trust and Restrict Management) blocks data on a USB3
+            // or CIO transport until the user approves the accessory. The flag
+            // can be a CFBoolean or a 0/1 CFNumber depending on the node.
+            if let r = childProps["TRM_TransportRestricted"],
+               (r as? Bool == true) || ((r as? NSNumber)?.boolValue == true) {
+                dataBlocked = true
+            }
             // Attached USB devices self-describe in a Metadata dict on various nodes.
             if let meta = childProps["Metadata"] as? [String: Any], meta["Product"] != nil {
                 note("Product", meta["Product"])
@@ -122,9 +134,10 @@ enum PortRegistry {
             return true
         }
 
-        // A populated CC/USB-PD subtree or an active power source also means
-        // something is plugged in, even if the port node itself doesn't say so.
-        if !sources.isEmpty || !vdos.isEmpty { connectionActive = true }
+        // A populated CC/USB-PD subtree, an active power source, or a blocked
+        // transport all mean something is plugged in, even if the port node
+        // itself doesn't say so.
+        if !sources.isEmpty || !vdos.isEmpty || dataBlocked { connectionActive = true }
 
         return PortSnapshot(
             name: name,
@@ -139,7 +152,8 @@ enum PortRegistry {
             powerSources: sources,
             usbConnectString: props["IOAccessoryUSBConnectString"] as? String,
             superSpeedActive: (props["IOAccessoryUSBSuperSpeedActive"] as? Bool) ?? false,
-            linkSpeedDescription: linkSpeed
+            linkSpeedDescription: linkSpeed,
+            dataBlockedBySecurity: dataBlocked
         )
     }
 
